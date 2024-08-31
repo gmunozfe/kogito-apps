@@ -18,6 +18,8 @@
  */
 package org.kie.kogito.index.service.messaging;
 
+import java.util.Collection;
+
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.kie.kogito.event.DataEvent;
 import org.kie.kogito.event.process.ProcessDefinitionDataEvent;
@@ -28,7 +30,7 @@ import org.kie.kogito.index.service.IndexingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.quarkus.arc.properties.UnlessBuildProperty;
+import io.quarkus.arc.properties.IfBuildProperty;
 import io.smallrye.mutiny.Uni;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -36,11 +38,10 @@ import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 
 @ApplicationScoped
-@UnlessBuildProperty(name = "kogito.data-index.blocking", stringValue = "true", enableIfMissing = true)
-@UnlessBuildProperty(name = "kogito.events.grouping", stringValue = "true", enableIfMissing = true)
-public class ReactiveMessagingEventConsumer {
+@IfBuildProperty(name = "kogito.events.grouping", stringValue = "true")
+public class GroupingReactiveMessagingEventConsumer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ReactiveMessagingEventConsumer.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(GroupingReactiveMessagingEventConsumer.class);
 
     public static final String KOGITO_PROCESSINSTANCES_EVENTS = "kogito-processinstances-events";
     public static final String KOGITO_PROCESS_DEFINITIONS_EVENTS = "kogito-processdefinitions-events";
@@ -54,25 +55,33 @@ public class ReactiveMessagingEventConsumer {
     Event<DataEvent<?>> eventPublisher;
 
     @Incoming(KOGITO_PROCESSINSTANCES_EVENTS)
-    public Uni<Void> onProcessInstanceEvent(ProcessInstanceDataEvent<?> event) {
-        LOGGER.debug("Process instance consumer received ProcessInstanceDataEvent: \n{}", event);
-        return Uni.createFrom().item(event)
-                .invoke(indexingService::indexProcessInstanceEvent)
-                .invoke(eventPublisher::fire)
-                .onFailure()
-                .invoke(t -> LOGGER.error("Error processing process instance ProcessInstanceDataEvent: {}", t.getMessage(), t))
-                .onItem().ignore().andContinueWithNull();
+    public Uni<Void> onProcessInstanceEvent(Collection<ProcessInstanceDataEvent<?>> events) {
+        LOGGER.debug("Process instance consumer received ProcessInstanceDataEvents: \n{}", events);
+        for (ProcessInstanceDataEvent<?> event : events) {
+            try {
+                indexingService.indexProcessInstanceEvent(event);
+                eventPublisher.fire(event);
+            } catch (Exception ex) {
+                LOGGER.error("Error processing process instance event: {}", event, ex);
+            }
+
+        }
+        return Uni.createFrom().voidItem();
     }
 
     @Incoming(KOGITO_USERTASKINSTANCES_EVENTS)
-    public Uni<Void> onUserTaskInstanceEvent(UserTaskInstanceDataEvent<?> event) {
-        LOGGER.debug("Task instance received UserTaskInstanceDataEvent \n{}", event);
-        return Uni.createFrom().item(event)
-                .invoke(indexingService::indexUserTaskInstanceEvent)
-                .invoke(eventPublisher::fire)
-                .onFailure()
-                .invoke(t -> LOGGER.error("Error processing task instance UserTaskInstanceDataEvent: {}", t.getMessage(), t))
-                .onItem().ignore().andContinueWithNull();
+    public Uni<Void> onUserTaskInstanceEvent(Collection<UserTaskInstanceDataEvent<?>> events) {
+        LOGGER.debug("Task instance received UserTaskInstanceDataEvent \n{}", events);
+        for (UserTaskInstanceDataEvent<?> event : events) {
+            try {
+                indexingService.indexUserTaskInstanceEvent(event);
+                eventPublisher.fire(event);
+            } catch (Exception ex) {
+                LOGGER.error("Error processing user task instance event: {}", event, ex);
+            }
+
+        }
+        return Uni.createFrom().voidItem();
     }
 
     @Incoming(KOGITO_JOBS_EVENTS)
@@ -85,11 +94,17 @@ public class ReactiveMessagingEventConsumer {
     }
 
     @Incoming(KOGITO_PROCESS_DEFINITIONS_EVENTS)
-    public Uni<Void> onProcessDefinitionDataEvent(ProcessDefinitionDataEvent event) {
-        LOGGER.debug("Process Definition received ProcessDefinitionDataEvent \n{}", event);
-        return Uni.createFrom().item(event)
-                .onItem().invoke(indexingService::indexProcessDefinition)
-                .onFailure().invoke(t -> LOGGER.error("Error processing ProcessDefinitionDataEvent: {}", t.getMessage(), t))
-                .onItem().ignore().andContinueWithNull();
+    public Uni<Void> onProcessDefinitionDataEvent(Collection<ProcessDefinitionDataEvent> events) {
+        LOGGER.debug("Process Definition received ProcessDefinitionDataEvent \n{}", events);
+        for (ProcessDefinitionDataEvent event : events) {
+            try {
+                indexingService.indexProcessDefinition(event);
+                eventPublisher.fire(event);
+            } catch (Exception ex) {
+                LOGGER.error("Error processing process definition event: {}", event, ex);
+            }
+
+        }
+        return Uni.createFrom().voidItem();
     }
 }

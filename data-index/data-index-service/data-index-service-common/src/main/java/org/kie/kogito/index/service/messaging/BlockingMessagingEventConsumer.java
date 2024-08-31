@@ -29,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.quarkus.arc.properties.IfBuildProperty;
+import io.quarkus.arc.properties.UnlessBuildProperty;
 import io.smallrye.reactive.messaging.annotations.Blocking;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -36,7 +37,6 @@ import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-import static org.kie.kogito.index.service.messaging.ReactiveMessagingEventConsumer.*;
 import static org.kie.kogito.index.service.messaging.ReactiveMessagingEventConsumer.KOGITO_JOBS_EVENTS;
 import static org.kie.kogito.index.service.messaging.ReactiveMessagingEventConsumer.KOGITO_PROCESSINSTANCES_EVENTS;
 import static org.kie.kogito.index.service.messaging.ReactiveMessagingEventConsumer.KOGITO_PROCESS_DEFINITIONS_EVENTS;
@@ -44,6 +44,7 @@ import static org.kie.kogito.index.service.messaging.ReactiveMessagingEventConsu
 
 @ApplicationScoped
 @IfBuildProperty(name = "kogito.data-index.blocking", stringValue = "true")
+@UnlessBuildProperty(name = "kogito.events.grouping", stringValue = "true")
 public class BlockingMessagingEventConsumer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BlockingMessagingEventConsumer.class);
